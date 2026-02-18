@@ -1,34 +1,113 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>CEVDET ❤️ NEHİR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cevdet ❤️ Nehir</title>
+
 <style>
-body{background:black;color:white;font-family:Arial;text-align:center;padding:30px;}
-input,button{padding:10px;margin:5px;border-radius:8px;border:none;}
-button{background:#ff0066;color:white;cursor:pointer;}
-#messages{margin-top:20px;max-height:300px;overflow:auto;border:1px solid white;padding:10px;}
+body{
+  margin:0;
+  font-family:Arial;
+  background:#0f2027;
+  color:white;
+}
+
+header{
+  padding:15px;
+  text-align:center;
+  background:#203a43;
+  font-weight:bold;
+}
+
+#status{
+  font-size:12px;
+}
+
+.container{
+  padding:15px;
+}
+
+.message{
+  padding:10px;
+  margin:8px 0;
+  border-radius:15px;
+  max-width:70%;
+  position:relative;
+}
+
+.cevdet{
+  background:#2196f3;
+  margin-left:auto;
+}
+
+.nehir{
+  background:#ff4b5c;
+}
+
+.tick{
+  font-size:12px;
+  position:absolute;
+  bottom:3px;
+  right:8px;
+}
+
+input, button{
+  padding:10px;
+  border:none;
+  border-radius:20px;
+}
+
+input{
+  width:65%;
+}
+
+button{
+  background:#ff4b5c;
+  color:white;
+}
+
+#memoryBox{
+  margin-top:20px;
+  background:#1b2b34;
+  padding:10px;
+  border-radius:15px;
+}
 </style>
 </head>
+
 <body>
 
-<h1>CEVDET ❤️ NEHİR</h1>
+<header>
+Cevdet ❤️ Nehir
+<div id="status">Bağlanıyor...</div>
+</header>
 
-<input id="name" placeholder="Adın">
-<input id="message" placeholder="Mesajın">
-<button id="sendBtn">Gönder 💌</button>
+<div class="container">
 
-<div id="messages"></div>
+<div id="chat"></div>
+
+<input id="messageInput" placeholder="Bugünkü notunu yaz..." />
+<button onclick="sendMessage()">Gönder</button>
+
+<div id="memoryBox">
+<h3>📦 Anı Kutusu</h3>
+<div id="memories"></div>
+</div>
+
+</div>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, push, onValue, set, update, get } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+/* 🔥 Firebase Config (ENTEGRE EDİLDİ) */
 const firebaseConfig = {
   apiKey: "AIzaSyBBpOuqC6_AQo5jCF0pF_l2jhMWS-vkdIY",
   authDomain: "cevdethenote.firebaseapp.com",
-  databaseURL: "https://cevdethenote-default-rtdb.europe-west1.firebasedatabase.app",
+  databaseURL: "https://cevdethenote-default-rtdb.firebaseio.com",
   projectId: "cevdethenote",
   storageBucket: "cevdethenote.firebasestorage.app",
   messagingSenderId: "53779979760",
@@ -38,37 +117,92 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const sendBtn = document.getElementById("sendBtn");
+/* 🔐 ŞİFRE */
+const password = "tontisko";
+let user = "";
+let today = new Date().toISOString().split("T")[0];
 
-sendBtn.addEventListener("click", async () => {
-  try {
-    const name = document.getElementById("name").value;
-    const message = document.getElementById("message").value;
+/* 🔐 Giriş */
+let inputPass = prompt("Şifre:");
+if(inputPass !== password){
+  alert("Yanlış şifre!");
+  location.reload();
+}
 
-    if(name === "" || message === ""){
-      alert("Boş bırakma tontisko 😅");
-      return;
+user = prompt("Cevdet mi Nehir mi?").toLowerCase();
+
+/* 📡 Mesaj Referansı */
+const chatRef = ref(db, "messages");
+
+/* 🔄 Mesajları Dinle */
+onValue(chatRef, snapshot=>{
+  const data = snapshot.val();
+  document.getElementById("chat").innerHTML = "";
+  document.getElementById("memories").innerHTML = "";
+
+  if(!data){
+    document.getElementById("status").innerText = "Online 🟢";
+    return;
+  }
+
+  Object.entries(data).forEach(([key,msg])=>{
+    const msgDiv = document.createElement("div");
+    msgDiv.classList.add("message");
+    msgDiv.classList.add(msg.user);
+
+    msgDiv.innerHTML = `
+      ${msg.text}
+      <div class="tick">${msg.read ? "✔✔" : "✔"}</div>
+    `;
+
+    if(msg.date === today){
+      document.getElementById("chat").appendChild(msgDiv);
+    } else {
+      document.getElementById("memories").appendChild(msgDiv);
     }
 
-    await push(ref(db, "messages"), {
-      name: name,
-      message: message
-    });
+    /* Okundu Yap */
+    if(msg.user !== user && !msg.read){
+      update(ref(db,"messages/"+key), {read:true});
+      playSound();
+      if(navigator.vibrate) navigator.vibrate(200);
+    }
+  });
 
-    document.getElementById("message").value = "";
-    console.log("Mesaj gönderildi");
-  } catch(error){
-    alert("Hata: " + error.message);
-    console.log(error);
+  document.getElementById("status").innerText = "Online 🟢";
+});
+
+/* ✉️ Mesaj Gönder */
+window.sendMessage = async function(){
+
+  const text = document.getElementById("messageInput").value.trim();
+  if(text === "") return;
+
+  const dailyRef = ref(db,"daily/"+today+"/"+user);
+  const snap = await get(dailyRef);
+
+  if(snap.exists()){
+    alert("Bugün sadece 1 mesaj hakkın var 💙");
+    return;
   }
-});
 
-onChildAdded(ref(db, "messages"), (data)=>{
-  const msg = data.val();
-  const div = document.createElement("div");
-  div.innerHTML = "<b>" + msg.name + ":</b> " + msg.message;
-  document.getElementById("messages").appendChild(div);
-});
+  await push(chatRef,{
+    text:text,
+    user:user,
+    date:today,
+    read:false
+  });
+
+  await set(dailyRef,true);
+
+  document.getElementById("messageInput").value="";
+};
+
+/* 🔔 Ses */
+function playSound(){
+  const audio = new Audio("https://www.myinstants.com/media/sounds/whatsapp-message.mp3");
+  audio.play();
+}
 
 </script>
 
