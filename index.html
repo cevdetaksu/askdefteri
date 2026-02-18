@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cevdet ❤️ Nehir</title>
+
+<style>
+body{
+  margin:0;
+  font-family:Arial;
+  background:#0f2027;
+  color:white;
+}
+
+header{
+  padding:15px;
+  text-align:center;
+  background:#203a43;
+  font-weight:bold;
+}
+
+#status{
+  font-size:12px;
+}
+
+.container{
+  padding:15px;
+}
+
+.message{
+  padding:10px;
+  margin:8px 0;
+  border-radius:15px;
+  max-width:70%;
+  position:relative;
+}
+
+.cevdet{
+  background:#2196f3;
+  margin-left:auto;
+}
+
+.nehir{
+  background:#ff4b5c;
+}
+
+.tick{
+  font-size:12px;
+  position:absolute;
+  bottom:3px;
+  right:8px;
+}
+
+input, button{
+  padding:10px;
+  border:none;
+  border-radius:20px;
+}
+
+input{
+  width:70%;
+}
+
+button{
+  background:#ff4b5c;
+  color:white;
+}
+
+#memoryBox{
+  margin-top:20px;
+  background:#1b2b34;
+  padding:10px;
+  border-radius:15px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+Cevdet ❤️ Nehir
+<div id="status">Offline</div>
+</header>
+
+<div class="container">
+
+<div id="chat"></div>
+
+<input id="messageInput" placeholder="Bugünkü notunu yaz..." />
+<button onclick="sendMessage()">Gönder</button>
+
+<div id="memoryBox">
+<h3>📦 Anı Kutusu</h3>
+<div id="memories"></div>
+</div>
+
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, push, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBBpOuqC6_AQo5jCF0pF_l2jhMWS-vkdIY",
+  authDomain: "cevdethenote.firebaseapp.com",
+  databaseURL: "https://cevdethenote-default-rtdb.firebaseio.com",
+  projectId: "cevdethenote",
+  storageBucket: "cevdethenote.firebasestorage.app",
+  messagingSenderId: "53779979760",
+  appId: "1:53779979760:web:8b7722fc6f80244027d135"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const password = "tontisko";
+let user = "";
+let today = new Date().toISOString().split("T")[0];
+
+let inputPass = prompt("Şifre:");
+if(inputPass !== password){
+  alert("Yanlış şifre!");
+  location.reload();
+}
+
+user = prompt("Cevdet mi Nehir mi?").toLowerCase();
+
+const chatRef = ref(db, "messages");
+
+onValue(chatRef, snapshot=>{
+  const data = snapshot.val();
+  document.getElementById("chat").innerHTML = "";
+  document.getElementById("memories").innerHTML = "";
+
+  if(!data) return;
+
+  Object.values(data).forEach(msg=>{
+    const msgDiv = document.createElement("div");
+    msgDiv.classList.add("message");
+    msgDiv.classList.add(msg.user);
+    msgDiv.innerHTML = msg.text + `<div class="tick">${msg.read ? "✔✔" : "✔"}</div>`;
+
+    if(msg.date === today){
+      document.getElementById("chat").appendChild(msgDiv);
+    } else {
+      document.getElementById("memories").appendChild(msgDiv);
+    }
+
+    if(msg.user !== user && !msg.read){
+      update(ref(db,"messages/"+msg.id), {read:true});
+      playSound();
+      navigator.vibrate(200);
+    }
+  });
+
+  document.getElementById("status").innerText = "Online 🟢";
+});
+
+function sendMessage(){
+  const text = document.getElementById("messageInput").value;
+  if(text.trim() === "") return;
+
+  const userTodayRef = ref(db,"daily/"+today+"/"+user);
+
+  onValue(userTodayRef, snap=>{
+    if(snap.exists()){
+      alert("Bugün sadece 1 mesaj hakkın var 💙");
+    } else {
+      const newRef = push(chatRef);
+      set(newRef,{
+        id:newRef.key,
+        text:text,
+        user:user,
+        date:today,
+        read:false
+      });
+      set(userTodayRef,true);
+      document.getElementById("messageInput").value="";
+    }
+  }, {onlyOnce:true});
+}
+
+window.sendMessage = sendMessage;
+
+function playSound(){
+  const audio = new Audio("https://www.myinstants.com/media/sounds/whatsapp-message.mp3");
+  audio.play();
+}
+
+</script>
+
+</body>
+</html>
