@@ -59,7 +59,7 @@ input, button{
 }
 
 input{
-  width:70%;
+  width:65%;
 }
 
 button{
@@ -80,7 +80,7 @@ button{
 
 <header>
 Cevdet ❤️ Nehir
-<div id="status">Offline</div>
+<div id="status">Bağlanıyor...</div>
 </header>
 
 <div class="container">
@@ -100,8 +100,10 @@ Cevdet ❤️ Nehir
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, push, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, push, onValue, set, update, get } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+/* 🔥 Firebase Config (ENTEGRE EDİLDİ) */
 const firebaseConfig = {
   apiKey: "AIzaSyBBpOuqC6_AQo5jCF0pF_l2jhMWS-vkdIY",
   authDomain: "cevdethenote.firebaseapp.com",
@@ -115,10 +117,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+/* 🔐 ŞİFRE */
 const password = "tontisko";
 let user = "";
 let today = new Date().toISOString().split("T")[0];
 
+/* 🔐 Giriş */
 let inputPass = prompt("Şifre:");
 if(inputPass !== password){
   alert("Yanlış şifre!");
@@ -127,20 +131,29 @@ if(inputPass !== password){
 
 user = prompt("Cevdet mi Nehir mi?").toLowerCase();
 
+/* 📡 Mesaj Referansı */
 const chatRef = ref(db, "messages");
 
+/* 🔄 Mesajları Dinle */
 onValue(chatRef, snapshot=>{
   const data = snapshot.val();
   document.getElementById("chat").innerHTML = "";
   document.getElementById("memories").innerHTML = "";
 
-  if(!data) return;
+  if(!data){
+    document.getElementById("status").innerText = "Online 🟢";
+    return;
+  }
 
-  Object.values(data).forEach(msg=>{
+  Object.entries(data).forEach(([key,msg])=>{
     const msgDiv = document.createElement("div");
     msgDiv.classList.add("message");
     msgDiv.classList.add(msg.user);
-    msgDiv.innerHTML = msg.text + `<div class="tick">${msg.read ? "✔✔" : "✔"}</div>`;
+
+    msgDiv.innerHTML = `
+      ${msg.text}
+      <div class="tick">${msg.read ? "✔✔" : "✔"}</div>
+    `;
 
     if(msg.date === today){
       document.getElementById("chat").appendChild(msgDiv);
@@ -148,42 +161,44 @@ onValue(chatRef, snapshot=>{
       document.getElementById("memories").appendChild(msgDiv);
     }
 
+    /* Okundu Yap */
     if(msg.user !== user && !msg.read){
-      update(ref(db,"messages/"+msg.id), {read:true});
+      update(ref(db,"messages/"+key), {read:true});
       playSound();
-      navigator.vibrate(200);
+      if(navigator.vibrate) navigator.vibrate(200);
     }
   });
 
   document.getElementById("status").innerText = "Online 🟢";
 });
 
-function sendMessage(){
-  const text = document.getElementById("messageInput").value;
-  if(text.trim() === "") return;
+/* ✉️ Mesaj Gönder */
+window.sendMessage = async function(){
 
-  const userTodayRef = ref(db,"daily/"+today+"/"+user);
+  const text = document.getElementById("messageInput").value.trim();
+  if(text === "") return;
 
-  onValue(userTodayRef, snap=>{
-    if(snap.exists()){
-      alert("Bugün sadece 1 mesaj hakkın var 💙");
-    } else {
-      const newRef = push(chatRef);
-      set(newRef,{
-        id:newRef.key,
-        text:text,
-        user:user,
-        date:today,
-        read:false
-      });
-      set(userTodayRef,true);
-      document.getElementById("messageInput").value="";
-    }
-  }, {onlyOnce:true});
-}
+  const dailyRef = ref(db,"daily/"+today+"/"+user);
+  const snap = await get(dailyRef);
 
-window.sendMessage = sendMessage;
+  if(snap.exists()){
+    alert("Bugün sadece 1 mesaj hakkın var 💙");
+    return;
+  }
 
+  await push(chatRef,{
+    text:text,
+    user:user,
+    date:today,
+    read:false
+  });
+
+  await set(dailyRef,true);
+
+  document.getElementById("messageInput").value="";
+};
+
+/* 🔔 Ses */
 function playSound(){
   const audio = new Audio("https://www.myinstants.com/media/sounds/whatsapp-message.mp3");
   audio.play();
