@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Cevdet ❤️ Nehir</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+  margin:0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  color:white;
+  text-align:center;
+}
+
+.container{
+  padding:20px;
+  max-width:500px;
+  margin:auto;
+}
+
+.status{
+  font-size:12px;
+  margin-bottom:10px;
+}
+
+.online{
+  color:#00ff88;
+}
+
+.offline{
+  color:#ff5252;
+}
+
+.typing{
+  font-size:12px;
+  color:#ffd54f;
+  height:18px;
+}
+
+input, textarea, button, select{
+  width:100%;
+  padding:12px;
+  margin:8px 0;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+}
+
+button{
+  background:white;
+  color:#0f2027;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+.chat-box{
+  background:rgba(0,0,0,0.3);
+  border-radius:15px;
+  padding:15px;
+  max-height:400px;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+}
+
+.message{
+  max-width:75%;
+  padding:10px;
+  margin:5px 0;
+  border-radius:15px;
+  font-size:14px;
+  position:relative;
+}
+
+.cevdet{
+  align-self:flex-end;
+  background:#2196F3;
+  color:white;
+}
+
+.nehir{
+  align-self:flex-start;
+  background:#e91e63;
+  color:white;
+}
+
+.time{
+  font-size:10px;
+  opacity:0.8;
+}
+
+.ticks{
+  font-size:11px;
+  position:absolute;
+  bottom:5px;
+  right:10px;
+}
+
+.blue{
+  color:#00e5ff;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h1>Cevdet ❤️ Nehir</h1>
+
+<div id="loginBox">
+<input type="password" id="sitePassword" placeholder="Ortak Şifre">
+<button onclick="checkPassword()">Giriş</button>
+</div>
+
+<div id="appBox" style="display:none;">
+
+<div class="status" id="statusText"></div>
+<div class="typing" id="typingText"></div>
+
+<select id="person">
+<option value="Cevdet">Cevdet</option>
+<option value="Nehir">Nehir</option>
+</select>
+
+<textarea id="noteInput" placeholder="Mesaj yaz..."
+oninput="typingNow()"></textarea>
+<button onclick="sendNote()">Gönder</button>
+
+<h3>Mesaj Kutumuz 💌</h3>
+<div class="chat-box" id="notes"></div>
+
+</div>
+</div>
+
+<audio id="notifSound" src="https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3"></audio>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, doc, setDoc } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBBpOuqC6_AQo5jCF0pF_l2jhMWS-vkdIY",
+  authDomain: "cevdethenote.firebaseapp.com",
+  projectId: "cevdethenote",
+  storageBucket: "cevdethenote.firebasestorage.app",
+  messagingSenderId: "53779979760",
+  appId: "1:53779979760:web:8b7722fc6f80244027d135"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const SITE_PASSWORD = "askimiz123";
+let lastCount = 0;
+let currentUser = "";
+
+window.checkPassword = async function(){
+  if(sitePassword.value === SITE_PASSWORD){
+    loginBox.style.display="none";
+    appBox.style.display="block";
+    loadNotes();
+    updateOnlineStatus(true);
+  }else{
+    alert("Yanlış şifre ❤️");
+  }
+}
+
+window.sendNote = async function(){
+  const name = person.value;
+  currentUser = name;
+
+  const now = new Date();
+  const today = now.toISOString().split("T")[0];
+  const time = now.toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
+
+  const q = query(collection(db,"notes"),
+    where("name","==",name),
+    where("date","==",today)
+  );
+
+  const snapshot = await getDocs(q);
+  if(!snapshot.empty){
+    alert("Bugün zaten yazdın ❤️");
+    return;
+  }
+
+  await addDoc(collection(db,"notes"),{
+    name:name,
+    text:noteInput.value,
+    date:today,
+    time:time,
+    timestamp: Date.now(),
+    read:false
+  });
+
+  noteInput.value="";
+  typingText.innerText="";
+  loadNotes();
+}
+
+async function loadNotes(){
+  const snapshot = await getDocs(collection(db,"notes"));
+  notes.innerHTML="";
+
+  const messages = [];
+  snapshot.forEach(docSnap=>{
+    messages.push({id:docSnap.id, ...docSnap.data()});
+  });
+
+  messages.sort((a,b)=> a.timestamp - b.timestamp);
+
+  messages.forEach(async data=>{
+    const div = document.createElement("div");
+    div.classList.add("message");
+    div.classList.add(data.name === "Cevdet" ? "cevdet" : "nehir");
+
+    let tickClass = data.read ? "blue" : "";
+
+    div.innerHTML = `
+      ${data.text}
+      <div class="time">${data.date} ${data.time}</div>
+      <div class="ticks ${tickClass}">✓✓</div>
+    `;
+
+    notes.appendChild(div);
+
+    if(data.name !== person.value && !data.read){
+      await updateDoc(doc(db,"notes",data.id),{
+        read:true
+      });
+    }
+  });
+
+  notes.scrollTop = notes.scrollHeight;
+
+  if(lastCount !== 0 && messages.length > lastCount){
+    document.getElementById("notifSound").play();
+    if(navigator.vibrate){
+      navigator.vibrate(200);
+    }
+  }
+
+  lastCount = messages.length;
+}
+
+window.typingNow = async function(){
+  if(person.value){
+    await setDoc(doc(db,"status","typing"),{
+      user:person.value,
+      typing:true
+    });
+  }
+}
+
+async function updateOnlineStatus(isOnline){
+  if(person.value){
+    await setDoc(doc(db,"status","online_"+person.value),{
+      online:isOnline
+    });
+  }
+}
+
+setInterval(async ()=>{
+  loadNotes();
+
+  const statusSnap = await getDocs(collection(db,"status"));
+  statusSnap.forEach(docSnap=>{
+    const data = docSnap.data();
+    const id = docSnap.id;
+
+    if(id.startsWith("online_")){
+      const user = id.replace("online_","");
+      if(user !== person.value){
+        statusText.innerHTML = user + (data.online ? " <span class='online'>● Online</span>" : " <span class='offline'>● Offline</span>");
+      }
+    }
+
+    if(id==="typing"){
+      if(data.user !== person.value && data.typing){
+        typingText.innerText = data.user + " yazıyor...";
+      }
+    }
+  });
+
+},3000);
+
+window.addEventListener("beforeunload",()=>{
+  updateOnlineStatus(false);
+});
+</script>
+
+</body>
+</html>
