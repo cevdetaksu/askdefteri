@@ -12,43 +12,77 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
 <style>
-body{
-  margin:0;
-  font-family:Arial;
-  background:#0f2027;
-  color:white;
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0f2027;
+  color: white;
 }
-header{
-  padding:15px;
-  text-align:center;
-  background:#203a43;
-  font-weight:bold;
-  position:sticky;
-  top:0;
+header {
+  padding: 15px;
+  text-align: center;
+  background: #203a43;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
 }
-#status{ font-size:12px; }
-.container{ padding:15px; }
-.message{
-  padding:12px;
-  margin:8px 0;
-  border-radius:15px;
-  max-width:75%;
-  position:relative;
-  font-size:14px;
-  animation:fadeIn 0.3s ease;
+#status {
+  font-size: 12px;
 }
-@keyframes fadeIn{
-  from{opacity:0; transform:translateY(5px);}
-  to{opacity:1;}
+.container {
+  padding: 15px;
 }
-.cevdet{ background:#2196f3; margin-left:auto; }
-.nehir{ background:#ff4b5c; }
-.meta{ font-size:10px; opacity:0.8; margin-top:5px; text-align:right; }
-.tick{ font-size:11px; margin-left:5px; }
-input{ width:65%; padding:10px; border:none; border-radius:20px; }
-button{ padding:10px; border:none; border-radius:20px; background:#ff4b5c; color:white; }
-#memoryToggle{ margin-top:20px; cursor:pointer; text-align:center; font-weight:bold; }
-#memoryBox{ display:none; margin-top:10px; background:#1b2b34; padding:10px; border-radius:15px; }
+.message {
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 15px;
+  max-width: 75%;
+  position: relative;
+  font-size: 14px;
+}
+.cevdet {
+  background: #2196f3;
+  margin-left: auto;
+}
+.nehir {
+  background: #ff4b5c;
+}
+.meta {
+  font-size: 10px;
+  opacity: 0.8;
+  margin-top: 5px;
+  text-align: right;
+}
+.tick {
+  font-size: 11px;
+  margin-left: 5px;
+}
+input {
+  width: 65%;
+  padding: 10px;
+  border: none;
+  border-radius: 20px;
+}
+button {
+  padding: 10px;
+  border: none;
+  border-radius: 20px;
+  background: #ff4b5c;
+  color: white;
+}
+#memoryToggle {
+  margin-top: 20px;
+  cursor: pointer;
+  text-align: center;
+  font-weight: bold;
+}
+#memoryBox {
+  display: none;
+  margin-top: 10px;
+  background: #1b2b34;
+  padding: 10px;
+  border-radius: 15px;
+}
 </style>
 </head>
 
@@ -96,39 +130,72 @@ let user = "";
 let today = new Date().toISOString().split("T")[0];
 const chatRef = ref(db, "messages");
 
+/* WebAuthn Kayıt ve Giriş */
+async function registerCredential() {
+  const publicKey = {
+    challenge: Uint8Array.from(
+      window.crypto.getRandomValues(new Uint8Array(32))
+    ),
+    rp: { name: "Cevdet & Nehir Chat" },
+    user: {
+      id: Uint8Array.from(window.crypto.getRandomValues(new Uint8Array(32))),
+      name: prompt("Kullanıcı adını gir (Cevdet veya Nehir)"),
+      displayName: "Chat User",
+    },
+    pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+  };
+
+  const credential = await navigator.credentials.create({ publicKey });
+  return credential;
+}
+
+async function loginWithCredential() {
+  try {
+    const credential = await navigator.credentials.get({
+      publicKey: {
+        challenge: new Uint8Array(32),
+        allowCredentials: [],
+        userVerification: "preferred"
+      }
+    });
+    return credential;
+  } catch (err) {
+    console.log("Face ID ile giriş başarısız:", err);
+    return null;
+  }
+}
+
+async function authenticate() {
+  if (!window.PublicKeyCredential) {
+    user = prompt("Cevdet mi Nehir mi?").toLowerCase();
+    return;
+  }
+
+  const choice = confirm("Face ID / Touch ID ile giriş yapmak ister misin?");
+  if (choice) {
+    const login = await loginWithCredential();
+    if (!login) {
+      const register = await registerCredential();
+      if (register) {
+        alert("Yeni Face ID kaydedildi! Bir daha Face ID ile giriş yapabilirsin.");
+        user = prompt("Cevdet mi Nehir mi?").toLowerCase();
+      }
+    } else {
+      user = prompt("Cevdet mi Nehir mi?").toLowerCase();
+    }
+  } else {
+    user = prompt("Cevdet mi Nehir mi?").toLowerCase();
+  }
+}
+
+await authenticate();
+
 function formatTime(timestamp){
   const date = new Date(timestamp);
   return date.toLocaleDateString("tr-TR") + " " + 
          date.toLocaleTimeString("tr-TR",{hour:'2-digit',minute:'2-digit'});
 }
 
-/* 🔐 Face ID / WebAuthn Giriş */
-async function login(){
-  if(!window.PublicKeyCredential){
-    user = prompt("Cevdet mi Nehir mi?").toLowerCase();
-    return;
-  }
-
-  try{
-    const assertion = await navigator.credentials.get({
-      publicKey:{
-        challenge: new Uint8Array([/* random dummy */]),
-        timeout:60000,
-        allowCredentials:[],
-        userVerification:"required"
-      }
-    });
-    // Başarılıysa soruyoruz: kim olduğunu
-    user = prompt("Cevdet mi Nehir mi?").toLowerCase();
-  }catch(e){
-    alert("Face ID/Touch ID başarısız, manuel giriş yap");
-    user = prompt("Cevdet mi Nehir mi?").toLowerCase();
-  }
-}
-
-await login();
-
-/* 🔄 Mesajları Dinle */
 onValue(chatRef, snapshot=>{
   const data = snapshot.val();
   document.getElementById("chat").innerHTML="";
@@ -163,7 +230,6 @@ onValue(chatRef, snapshot=>{
   document.getElementById("status").innerText="Online 🟢";
 });
 
-/* ✉️ Mesaj Gönder */
 window.sendMessage = async function(){
   const text = document.getElementById("messageInput").value.trim();
   if(text==="") return;
@@ -188,7 +254,6 @@ window.sendMessage = async function(){
   document.getElementById("messageInput").value="";
 };
 
-/* 🔄 Anı Kutusu Toggle */
 document.getElementById("memoryToggle").onclick = function(){
   const box = document.getElementById("memoryBox");
   if(box.style.display==="none"){
