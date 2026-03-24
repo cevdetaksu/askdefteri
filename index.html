@@ -1,270 +1,169 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cevdet ❤️ Nehir</title>
+  <meta charset="UTF-8">
+  <title>CEVDET ❤️ NEHİR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#ff4b5c">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: linear-gradient(135deg, #ff4e88, #6a00ff);
+      color: white;
+      text-align: center;
+    }
 
-<style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #0f2027;
-  color: white;
-}
-header {
-  padding: 15px;
-  text-align: center;
-  background: #203a43;
-  font-weight: bold;
-  position: sticky;
-  top: 0;
-}
-#status {
-  font-size: 12px;
-}
-.container {
-  padding: 15px;
-}
-.message {
-  padding: 12px;
-  margin: 8px 0;
-  border-radius: 15px;
-  max-width: 75%;
-  position: relative;
-  font-size: 14px;
-}
-.cevdet {
-  background: #2196f3;
-  margin-left: auto;
-}
-.nehir {
-  background: #ff4b5c;
-}
-.meta {
-  font-size: 10px;
-  opacity: 0.8;
-  margin-top: 5px;
-  text-align: right;
-}
-.tick {
-  font-size: 11px;
-  margin-left: 5px;
-}
-input {
-  width: 65%;
-  padding: 10px;
-  border: none;
-  border-radius: 20px;
-}
-button {
-  padding: 10px;
-  border: none;
-  border-radius: 20px;
-  background: #ff4b5c;
-  color: white;
-}
-#memoryToggle {
-  margin-top: 20px;
-  cursor: pointer;
-  text-align: center;
-  font-weight: bold;
-}
-#memoryBox {
-  display: none;
-  margin-top: 10px;
-  background: #1b2b34;
-  padding: 10px;
-  border-radius: 15px;
-}
-</style>
+    h1 {
+      margin-top: 20px;
+    }
+
+    #messages {
+      height: 55vh;
+      overflow-y: auto;
+      padding: 10px;
+    }
+
+    .msg {
+      background: rgba(255,255,255,0.15);
+      margin: 8px;
+      padding: 10px;
+      border-radius: 15px;
+      text-align: left;
+    }
+
+    .name {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-bottom: 5px;
+    }
+
+    #inputArea {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+    }
+
+    #topBar {
+      display: flex;
+    }
+
+    select {
+      padding: 10px;
+      border: none;
+      outline: none;
+    }
+
+    #bottomBar {
+      display: flex;
+    }
+
+    input {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      outline: none;
+    }
+
+    button {
+      padding: 15px;
+      border: none;
+      background: #ff2e63;
+      color: white;
+      font-weight: bold;
+    }
+  </style>
 </head>
 
 <body>
 
-<header>
-Cevdet ❤️ Nehir
-<div id="status">Bağlanıyor...</div>
-</header>
+<h1>CEVDET ❤️ NEHİR</h1>
 
-<div class="container">
+<div id="messages"></div>
 
-<div id="chat"></div>
+<div id="inputArea">
 
-<input id="messageInput" placeholder="Bugünkü notunu yaz..." />
-<button onclick="sendMessage()">Gönder</button>
+  <div id="topBar">
+    <select id="userSelect">
+      <option value="Cevdet">Cevdet</option>
+      <option value="Nehir">Nehir</option>
+    </select>
+  </div>
 
-<div id="memoryToggle">📦 Anı Kutusunu Aç</div>
-<div id="memoryBox">
-<div id="memories"></div>
-</div>
+  <div id="bottomBar">
+    <input id="msgInput" placeholder="Mesaj yaz kankii..." />
+    <button onclick="sendMessage()">Gönder</button>
+  </div>
 
 </div>
 
 <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, push, onValue, update, get, set } 
-from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBBpOuqC6_AQo5jCF0pF_l2jhMWS-vkdIY",
-  authDomain: "cevdethenote.firebaseapp.com",
-  databaseURL: "https://cevdethenote-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "cevdethenote",
-  storageBucket: "cevdethenote.firebasestorage.app",
-  messagingSenderId: "53779979760",
-  appId: "1:53779979760:web:8b7722fc6f80244027d135"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-let user = "";
-let today = new Date().toISOString().split("T")[0];
-const chatRef = ref(db, "messages");
-
-/* WebAuthn Kayıt ve Giriş */
-async function registerCredential() {
-  const publicKey = {
-    challenge: Uint8Array.from(
-      window.crypto.getRandomValues(new Uint8Array(32))
-    ),
-    rp: { name: "Cevdet & Nehir Chat" },
-    user: {
-      id: Uint8Array.from(window.crypto.getRandomValues(new Uint8Array(32))),
-      name: prompt("Kullanıcı adını gir (Cevdet veya Nehir)"),
-      displayName: "Chat User",
-    },
-    pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+  const firebaseConfig = {
+    apiKey: "AIzaSyBBpOuqC6_AQo5jCF0pF_l2jhMWS-vkdIY",
+    authDomain: "cevdethenote.firebaseapp.com",
+    databaseURL: "https://cevdethenote-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "cevdethenote",
+    storageBucket: "cevdethenote.firebasestorage.app",
+    messagingSenderId: "53779979760",
+    appId: "1:53779979760:web:8b7722fc6f80244027d135"
   };
 
-  const credential = await navigator.credentials.create({ publicKey });
-  return credential;
-}
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
 
-async function loginWithCredential() {
-  try {
-    const credential = await navigator.credentials.get({
-      publicKey: {
-        challenge: new Uint8Array(32),
-        allowCredentials: [],
-        userVerification: "preferred"
-      }
+  const messagesRef = ref(db, "messages");
+
+  // 📩 MESAJ GÖNDER
+  window.sendMessage = function() {
+    const input = document.getElementById("msgInput");
+    const user = document.getElementById("userSelect").value;
+
+    if (input.value.trim() === "") return;
+
+    push(messagesRef, {
+      text: input.value,
+      user: user,
+      time: Date.now()
     });
-    return credential;
-  } catch (err) {
-    console.log("Face ID ile giriş başarısız:", err);
-    return null;
-  }
-}
 
-async function authenticate() {
-  if (!window.PublicKeyCredential) {
-    user = prompt("Cevdet mi Nehir mi?").toLowerCase();
-    return;
+    input.value = "";
   }
 
-  const choice = confirm("Face ID / Touch ID ile giriş yapmak ister misin?");
-  if (choice) {
-    const login = await loginWithCredential();
-    if (!login) {
-      const register = await registerCredential();
-      if (register) {
-        alert("Yeni Face ID kaydedildi! Bir daha Face ID ile giriş yapabilirsin.");
-        user = prompt("Cevdet mi Nehir mi?").toLowerCase();
-      }
-    } else {
-      user = prompt("Cevdet mi Nehir mi?").toLowerCase();
-    }
-  } else {
-    user = prompt("Cevdet mi Nehir mi?").toLowerCase();
-  }
-}
+  // 👀 MESAJLARI GÖSTER
+  onValue(messagesRef, (snapshot) => {
+    const data = snapshot.val();
+    const container = document.getElementById("messages");
 
-await authenticate();
+    container.innerHTML = "";
 
-function formatTime(timestamp){
-  const date = new Date(timestamp);
-  return date.toLocaleDateString("tr-TR") + " " + 
-         date.toLocaleTimeString("tr-TR",{hour:'2-digit',minute:'2-digit'});
-}
-
-onValue(chatRef, snapshot=>{
-  const data = snapshot.val();
-  document.getElementById("chat").innerHTML="";
-  document.getElementById("memories").innerHTML="";
-
-  if(!data) return;
-
-  Object.entries(data).forEach(([key,msg])=>{
-    const msgDiv = document.createElement("div");
-    msgDiv.classList.add("message", msg.user);
-    msgDiv.innerHTML = `
-      <b>${msg.user.toUpperCase()}</b><br>
-      ${msg.text}
-      <div class="meta">
-        ${formatTime(msg.timestamp)}
-        <span class="tick">${msg.read ? "✔✔" : "✔"}</span>
-      </div>
-    `;
-    if(msg.date === today){
-      document.getElementById("chat").appendChild(msgDiv);
-    } else {
-      document.getElementById("memories").appendChild(msgDiv);
+    if (!data) {
+      container.innerHTML = "<p>Henüz mesaj yok 💔</p>";
+      return;
     }
 
-    if(msg.user !== user && !msg.read){
-      update(ref(db,"messages/"+key), {read:true});
-      if(navigator.vibrate) navigator.vibrate(200);
-    }
+    const messagesArray = Object.values(data);
+
+    // sırala
+    messagesArray.sort((a, b) => a.time - b.time);
+
+    messagesArray.forEach(item => {
+      const msg = document.createElement("div");
+      msg.className = "msg";
+
+      msg.innerHTML = `
+        <div class="name">${item.user} yazdı</div>
+        <div>${item.text}</div>
+      `;
+
+      container.appendChild(msg);
+    });
+
+    container.scrollTop = container.scrollHeight;
   });
-
-  window.scrollTo(0, document.body.scrollHeight);
-  document.getElementById("status").innerText="Online 🟢";
-});
-
-window.sendMessage = async function(){
-  const text = document.getElementById("messageInput").value.trim();
-  if(text==="") return;
-
-  const dailyRef = ref(db,"daily/"+today+"/"+user);
-  const snap = await get(dailyRef);
-
-  if(snap.exists()){
-    alert("Bugün sadece 1 mesaj hakkın var 💙");
-    return;
-  }
-
-  await push(chatRef,{
-    text:text,
-    user:user,
-    date:today,
-    timestamp:Date.now(),
-    read:false
-  });
-
-  await set(dailyRef,true);
-  document.getElementById("messageInput").value="";
-};
-
-document.getElementById("memoryToggle").onclick = function(){
-  const box = document.getElementById("memoryBox");
-  if(box.style.display==="none"){
-    box.style.display="block";
-    this.innerText="📦 Anı Kutusunu Kapat";
-  }else{
-    box.style.display="none";
-    this.innerText="📦 Anı Kutusunu Aç";
-  }
-};
-
 </script>
 
 </body>
