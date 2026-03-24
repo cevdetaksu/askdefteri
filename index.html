@@ -131,7 +131,7 @@ window.sendLove = ()=>{
   });
 }
 
-// 💌 sınırsız: Özledim (sayacı güncel ve kullanıcı adı ekli)
+// 💌 sınırsız: Özledim (sayacı ve kullanıcı adı ile)
 window.sendMissed = async ()=>{
   const today = startOfDay();
   const snap = await new Promise(resolve=>{
@@ -149,7 +149,7 @@ window.sendMissed = async ()=>{
   });
 }
 
-// 📸 FOTO (BASE64)
+// 📸 FOTO (günlük hakkı saymaz)
 window.sendImage = ()=>{
   const fileInput = document.createElement("input");
   fileInput.type="file";
@@ -158,7 +158,6 @@ window.sendImage = ()=>{
   fileInput.onchange = ()=>{
     const file = fileInput.files[0];
     const reader = new FileReader();
-
     reader.onload = ()=>{
       push(messagesRef,{
         image: reader.result,
@@ -167,10 +166,8 @@ window.sendImage = ()=>{
         isSpecial:false
       });
     };
-
     reader.readAsDataURL(file);
   };
-
   fileInput.click();
 }
 
@@ -191,9 +188,7 @@ onValue(messagesRef,(snap)=>{
 
   const missedMap = {};
   todayArr.sort((a,b)=>a.time-b.time).forEach(item=>{
-    // cihaz bazlı pozisyon
     const posClass = item.user===currentUser ? "right" : "left";
-
     if(item.isSpecial && item.isMissed){
       missedMap[item.user] = item.text;
     } else if(!item.isSpecial){
