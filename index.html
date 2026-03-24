@@ -20,8 +20,8 @@ button{padding:10px;margin:5px;border:none;border-radius:10px}
 /* mesaj */
 #messages{height:50vh;overflow:auto;padding:10px}
 .msg{max-width:70%;padding:10px;margin:5px;border-radius:15px}
-.left{background:#444}
 .right{background:#ff2e63;margin-left:auto}
+.left{background:#444}
 img{max-width:100%;border-radius:10px}
 
 /* input */
@@ -39,7 +39,6 @@ input{flex:1;padding:10px;border:none}
 </head>
 <body>
 
-<!-- GİRİŞ -->
 <div id="login">
   <h2>Kimsin? ❤️</h2>
   <button onclick="selectUser('Cevdet')">Cevdet</button>
@@ -139,9 +138,8 @@ window.sendMissed = async ()=>{
     onValue(messagesRef, s=>resolve(s), {onlyOnce:true});
   });
   const data = snap.val()||{};
-  // bugün için önceki özledim sayısını say
   const todayMissed = Object.values(data).filter(m=>m.user===currentUser && m.time>=today && m.isSpecial && m.text.includes("💌 Özledim"));
-  const count = todayMissed.length + 1; // yeni ekleniyor
+  const count = todayMissed.length + 1;
   push(messagesRef,{
     text:`${currentUser}: 💌 Özledim x${count}`,
     user:currentUser,
@@ -191,34 +189,34 @@ onValue(messagesRef,(snap)=>{
     else todayArr.push(item);
   });
 
-  // ana ekranda sadece bugün ve günlük mesajlar
-  const missedMap = {}; // kullanıcı bazlı en son Özledim
+  const missedMap = {};
   todayArr.sort((a,b)=>a.time-b.time).forEach(item=>{
+    // cihaz bazlı pozisyon
+    const posClass = item.user===currentUser ? "right" : "left";
+
     if(item.isSpecial && item.isMissed){
-      missedMap[item.user] = item.text; // en son mesajı al
+      missedMap[item.user] = item.text;
     } else if(!item.isSpecial){
       const div = document.createElement("div");
-      div.className="msg "+(item.user==="Cevdet"?"right":"left");
+      div.className="msg "+posClass;
       if(item.text) div.innerHTML+=item.text;
       if(item.image) div.innerHTML+=`<img src="${item.image}">`;
       container.appendChild(div);
-    } else if(item.isSpecial && !item.isMissed){ // Seni Seviyorum
+    } else if(item.isSpecial && !item.isMissed){
       const div = document.createElement("div");
-      div.className="msg "+(item.user==="Cevdet"?"right":"left");
+      div.className="msg "+posClass;
       if(item.text) div.innerHTML+=item.text;
       container.appendChild(div);
     }
   });
 
-  // Özledim mesajları ekle (kullanıcı adıyla)
   Object.values(missedMap).forEach(txt=>{
     const div = document.createElement("div");
-    div.className="msg left"; // hep solda gösterelim
+    div.className="msg left";
     div.innerHTML = txt;
     container.appendChild(div);
   });
 
-  // anı kutusunda tüm mesajlar
   localStorage.setItem("memoryBox", JSON.stringify(pastMessages.concat(todayArr)));
   container.scrollTop=container.scrollHeight;
 });
@@ -231,7 +229,7 @@ window.openMemory=()=>{
   box.innerHTML = `<button onclick="closeMemory()">❌ Kapat</button>`;
   messages.forEach(item=>{
     const div = document.createElement("div");
-    div.className="msg "+(item.user==="Cevdet"?"right":"left");
+    div.className="msg "+(item.user===currentUser?"right":"left");
     if(item.text) div.innerHTML+=item.text;
     if(item.image) div.innerHTML+=`<img src="${item.image}">`;
     box.appendChild(div);
