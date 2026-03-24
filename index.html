@@ -52,6 +52,7 @@ input{flex:1;padding:10px;border:none}
 
 <div id="inputArea">
   <button onclick="sendLove()">❤️ Seni Seviyorum</button>
+  <button onclick="sendMissed()">💌 Özledim</button>
   <button onclick="openMemory()">📦 Anı Kutusu</button>
 
   <div id="bottomBar">
@@ -81,6 +82,7 @@ const db = getDatabase(app);
 const messagesRef = ref(db,"messages");
 
 let currentUser = "";
+let missedCount = 0;
 
 // giriş
 window.selectUser = (name)=>{
@@ -88,13 +90,13 @@ window.selectUser = (name)=>{
   document.getElementById("login").style.display="none";
 }
 
-// helper: bugün timestamp sınırı
+// helper: bugün timestamp
 function startOfDay() {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 }
 
-// gönderme fonksiyonu
+// günlük mesaj
 window.sendMessage = async ()=>{
   const input = document.getElementById("msgInput");
   if(!input.value) return;
@@ -105,7 +107,7 @@ window.sendMessage = async ()=>{
   });
 
   const data = snap.val()||{};
-  const todayMessages = Object.values(data).filter(m=>m.user===currentUser && m.time>=today);
+  const todayMessages = Object.values(data).filter(m=>m.user===currentUser && m.time>=today && !m.isSpecial);
   if(todayMessages.length>=1){
     alert("Bugün zaten mesaj attınız! ⏰");
     return;
@@ -114,28 +116,40 @@ window.sendMessage = async ()=>{
   push(messagesRef,{
     text:input.value,
     user:currentUser,
-    time:Date.now()
+    time:Date.now(),
+    isSpecial:false
   });
 
   input.value="";
 }
 
-// ❤️ özel mesaj
+// ❤️ sınırsız: Seni Seviyorum
 window.sendLove = ()=>{
+  push(messagesRef,{
+    text:"Seni Seviyorum ❤️",
+    user:currentUser,
+    time:Date.now(),
+    isSpecial:true
+  });
+}
+
+// 💌 sınırsız: Özledim (sayacı güncel)
+window.sendMissed = async ()=>{
   const today = startOfDay();
-  onValue(messagesRef, snap=>{
-    const data = snap.val()||{};
-    const todayMessages = Object.values(data).filter(m=>m.user===currentUser && m.time>=today);
-    if(todayMessages.length>=1){
-      alert("Bugün zaten mesaj attınız! ⏰");
-      return;
-    }
-    push(messagesRef,{
-      text:"Seni Seviyorum ❤️",
-      user:currentUser,
-      time:Date.now()
-    });
-  }, {onlyOnce:true});
+  const snap = await new Promise(resolve=>{
+    onValue(messagesRef, s=>resolve(s), {onlyOnce:true});
+  });
+  const data = snap.val()||{};
+  // bugün için önceki özledim sayısını say
+  const todayMissed = Object.values(data).filter(m=>m.user===currentUser && m.time>=today && m.isSpecial && m.text.includes("💌 Özledim"));
+  const count = todayMissed.length + 1; // yeni ekleniyor
+  push(messagesRef,{
+    text:`💌 Özledim x${count}`,
+    user:currentUser,
+    time:Date.now(),
+    isSpecial:true,
+    isMissed:true
+  });
 }
 
 // 📸 FOTO (BASE64)
@@ -152,7 +166,8 @@ window.sendImage = ()=>{
       push(messagesRef,{
         image: reader.result,
         user: currentUser,
-        time:Date.now()
+        time:Date.now(),
+        isSpecial:false
       });
     };
 
@@ -177,16 +192,35 @@ onValue(messagesRef,(snap)=>{
     else todayArr.push(item);
   });
 
-  // ana ekranda sadece bugün
+  // ana ekranda sadece bugün ve günlük mesajlar
+  // Özledim sayacı: yalnızca en son gönderiyi göster
+  const missedMap = {}; // kullanıcı bazlı
   todayArr.sort((a,b)=>a.time-b.time).forEach(item=>{
+    if(item.isSpecial && item.isMissed){
+      missedMap[item.user] = item.text; // en son mesajı al
+    } else if(!item.isSpecial){
+      const div = document.createElement("div");
+      div.className="msg "+(item.user==="Cevdet"?"right":"left");
+      if(item.text) div.innerHTML+=item.text;
+      if(item.image) div.innerHTML+=`<img src="${item.image}">`;
+      container.appendChild(div);
+    } else if(item.isSpecial && !item.isMissed){ // Seni Seviyorum
+      const div = document.createElement("div");
+      div.className="msg "+(item.user==="Cevdet"?"right":"left");
+      if(item.text) div.innerHTML+=item.text;
+      container.appendChild(div);
+    }
+  });
+
+  // Özledim mesajları ekle
+  Object.values(missedMap).forEach(txt=>{
     const div = document.createElement("div");
-    div.className="msg "+(item.user==="Cevdet"?"right":"left");
-    if(item.text) div.innerHTML+=item.text;
-    if(item.image) div.innerHTML+=`<img src="${item.image}">`;
+    div.className="msg left"; // hep solda gösterelim
+    div.innerHTML = txt;
     container.appendChild(div);
   });
 
-  // anı kutusunda eski mesajları saklamak için localStorage (24 saatten eski)
+  // anı kutusunda tüm mesajlar
   localStorage.setItem("memoryBox", JSON.stringify(pastMessages.concat(todayArr)));
   container.scrollTop=container.scrollHeight;
 });
