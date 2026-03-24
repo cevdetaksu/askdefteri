@@ -6,117 +6,74 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body {
-  margin: 0;
-  font-family: Arial;
-  background: linear-gradient(135deg, #ff4e88, #6a00ff);
-  color: white;
-  overflow: hidden;
+body {margin:0;font-family:Arial;background:#1a1a2e;color:white}
+h1{text-align:center}
+
+/* login */
+#login{
+  position:fixed;
+  width:100%;
+  height:100%;
+  background:#000;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
 }
 
-h1 {
-  text-align: center;
-}
+button{padding:10px;margin:5px;border:none;border-radius:10px}
 
-#messages {
-  height: 60vh;
-  overflow-y: auto;
-  padding: 10px;
-}
+/* mesaj */
+#messages{height:60vh;overflow:auto;padding:10px}
+.msg{max-width:70%;padding:10px;margin:5px;border-radius:15px}
+.left{background:#444}
+.right{background:#ff2e63;margin-left:auto}
+img{max-width:100%;border-radius:10px}
 
-/* mesaj balonları */
-.msg {
-  max-width: 70%;
-  padding: 10px;
-  margin: 8px;
-  border-radius: 15px;
-}
+/* input */
+#inputArea{position:fixed;bottom:0;width:100%;background:#222}
+#bottomBar{display:flex}
+input{flex:1;padding:10px;border:none}
 
-.left {
-  background: rgba(255,255,255,0.2);
-  text-align: left;
-}
-
-.right {
-  background: #ff2e63;
-  margin-left: auto;
-  text-align: right;
-}
-
-.name {
-  font-size: 11px;
-  opacity: 0.7;
-}
-
-/* input alanı */
-#inputArea {
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  background: rgba(0,0,0,0.3);
-}
-
-#topBar {
-  display: flex;
-  justify-content: space-between;
-}
-
-select, button {
-  padding: 10px;
-  border: none;
-}
-
-#bottomBar {
-  display: flex;
-}
-
-input {
-  flex: 1;
-  padding: 15px;
-  border: none;
-}
-
-/* kalpler */
-.heart {
-  position: fixed;
-  color: red;
-  animation: fall linear infinite;
-}
-
-@keyframes fall {
-  0% {transform: translateY(-10vh);}
-  100% {transform: translateY(110vh);}
+/* anı kutusu */
+#memoryBox{
+  position:fixed;
+  top:10%;
+  left:10%;
+  width:80%;
+  height:70%;
+  background:#000;
+  overflow:auto;
+  display:none;
+  padding:10px;
 }
 </style>
 </head>
 
 <body>
 
+<div id="login">
+  <h2>Kimsin? ❤️</h2>
+  <button onclick="selectUser('Cevdet')">Cevdet</button>
+  <button onclick="selectUser('Nehir')">Nehir</button>
+</div>
+
 <h1>CEVDET ❤️ NEHİR</h1>
 
 <div id="messages"></div>
 
 <div id="inputArea">
-
-  <div id="topBar">
-    <select id="userSelect">
-      <option value="Cevdet">Cevdet</option>
-      <option value="Nehir">Nehir</option>
-    </select>
-
-    <button onclick="toggleMusic()">🎵</button>
-  </div>
+  <button onclick="sendLove()">❤️ Seni Seviyorum</button>
+  <button onclick="openMemory()">📦 Anı Kutusu</button>
 
   <div id="bottomBar">
-    <input id="msgInput" placeholder="Mesaj yaz kankii..." />
+    <input id="msgInput" placeholder="Mesaj yaz..." />
     <button onclick="sendMessage()">Gönder</button>
+    <button onclick="sendImage()">📸</button>
   </div>
-
 </div>
 
-<audio id="music" loop>
-  <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">
-</audio>
+<div id="memoryBox"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -126,79 +83,97 @@ const firebaseConfig = {
   apiKey: "AIzaSyBBpOuqC6_AQo5jCF0pF_l2jhMWS-vkdIY",
   authDomain: "cevdethenote.firebaseapp.com",
   databaseURL: "https://cevdethenote-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "cevdethenote",
-  storageBucket: "cevdethenote.firebasestorage.app",
-  messagingSenderId: "53779979760",
-  appId: "1:53779979760:web:8b7722fc6f80244027d135"
+  projectId: "cevdethenote"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const messagesRef = ref(db, "messages");
+const messagesRef = ref(db,"messages");
 
-// mesaj gönder
-window.sendMessage = function() {
-  const input = document.getElementById("msgInput");
-  const user = document.getElementById("userSelect").value;
+let currentUser = "";
 
-  if (input.value.trim() === "") return;
-
-  push(messagesRef, {
-    text: input.value,
-    user: user,
-    time: Date.now()
-  });
-
-  input.value = "";
+// giriş
+window.selectUser = (name)=>{
+  currentUser = name;
+  document.getElementById("login").style.display="none";
 }
 
-// mesajları göster
-onValue(messagesRef, (snapshot) => {
-  const data = snapshot.val();
-  const container = document.getElementById("messages");
+// mesaj
+window.sendMessage = ()=>{
+  const input = document.getElementById("msgInput");
+  if(!input.value) return;
 
-  container.innerHTML = "";
-
-  if (!data) return;
-
-  const messagesArray = Object.values(data);
-  messagesArray.sort((a,b)=>a.time-b.time);
-
-  messagesArray.forEach(item => {
-    const msg = document.createElement("div");
-
-    msg.className = "msg " + (item.user === "Cevdet" ? "right" : "left");
-
-    msg.innerHTML = `
-      <div class="name">${item.user}</div>
-      <div>${item.text}</div>
-    `;
-
-    container.appendChild(msg);
+  push(messagesRef,{
+    text:input.value,
+    user:currentUser,
+    time:Date.now()
   });
 
-  container.scrollTop = container.scrollHeight;
+  input.value="";
+}
+
+// ❤️ özel mesaj
+window.sendLove = ()=>{
+  push(messagesRef,{
+    text:"Seni Seviyorum ❤️",
+    user:currentUser,
+    time:Date.now()
+  });
+}
+
+// 📸 FOTO (BASE64)
+window.sendImage = ()=>{
+  const fileInput = document.createElement("input");
+  fileInput.type="file";
+  fileInput.accept="image/*";
+
+  fileInput.onchange = ()=>{
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = ()=>{
+      push(messagesRef,{
+        image: reader.result, // base64
+        user: currentUser,
+        time: Date.now()
+      });
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  fileInput.click();
+}
+
+// göster
+onValue(messagesRef,(snap)=>{
+  const data = snap.val();
+  const container = document.getElementById("messages");
+  container.innerHTML="";
+
+  if(!data) return;
+
+  const arr = Object.values(data).sort((a,b)=>a.time-b.time);
+
+  arr.forEach(item=>{
+    const div = document.createElement("div");
+    div.className="msg "+(item.user==="Cevdet"?"right":"left");
+
+    if(item.text) div.innerHTML+=item.text;
+    if(item.image) div.innerHTML+=`<img src="${item.image}">`;
+
+    container.appendChild(div);
+  });
+
+  container.scrollTop=container.scrollHeight;
 });
 
-// 🎵 müzik
-const music = document.getElementById("music");
-window.toggleMusic = function(){
-  if(music.paused) music.play();
-  else music.pause();
+// 📦 anı kutusu
+window.openMemory=()=>{
+  const box=document.getElementById("memoryBox");
+  box.style.display="block";
+  box.innerHTML=document.getElementById("messages").innerHTML;
 }
-
-// ❤️ kalp yağmuru
-setInterval(()=>{
-  const heart = document.createElement("div");
-  heart.className = "heart";
-  heart.innerHTML = "❤️";
-  heart.style.left = Math.random()*100 + "vw";
-  heart.style.animationDuration = (Math.random()*3+2)+"s";
-  document.body.appendChild(heart);
-
-  setTimeout(()=>heart.remove(),5000);
-},300);
-
 </script>
 
 </body>
